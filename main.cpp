@@ -37,8 +37,8 @@ public:
         >([&, this](auto &c_pos, auto &c_float_val) {
             const auto t = static_cast<float>(ctx.master_clock.totalElapsed());
             c_float_val.value = std::abs(
-                std::cos(c_pos.x + t) +
-                std::cos(c_pos.y * 2 + t)
+                std::cos(c_pos.x + t / 50) +
+                std::cos(c_pos.y * 2 + t / 50)
             );
         });
     }
@@ -66,19 +66,18 @@ public:
     // https://stackoverflow.com/questions/12378642/c-pixels-in-console-window
     void execute(GameContext &ctx) override
     {
-        const auto console = GetConsoleWindow();
-        const auto dc = GetDC(console);
+        const auto output = GetStdHandle(STD_OUTPUT_HANDLE);
         ctx.execution.sequential<
             PositionComponent,
             RGBColorComponent
         >([&, this](auto &c_pos, auto &c_color) {
-            SetPixel(
-                dc,
-                c_pos.x, c_pos.y,
-                RGB(c_color.r, c_color.g, c_color.b)
-            );
+            SetConsoleCursorPosition(output, {
+                static_cast<SHORT>(c_pos.x),
+                static_cast<SHORT>(c_pos.y)
+            });
+            SetConsoleTextAttribute(output, c_color.r);
+            printf("x");
         });
-        ReleaseDC(console, dc);
     }
 };
 
@@ -87,12 +86,12 @@ class PixelInitSystem : public GameInitSystem
 public:
     void execute(GameContext &ctx) override
     {
-        for(auto i = 0; i < 100; ++i)
+        for(auto i = 0; i < 30; ++i)
         {
             for(int j = 0; j < 100; ++j)
             {
                 ctx.entity_manager.addEntity()
-                    .addComponent<PositionComponent>(i, j)
+                    .addComponent<PositionComponent>(j, i)
                     .addComponent<FloatValueComponent>()
                     .addComponent<RGBColorComponent>()
                     ;
@@ -100,11 +99,46 @@ public:
         }
     }
 };
+
+class EraseUnwantedPixelsInitSystem : public GameInitSystem
+{
+public:
+    void execute(GameContext &ctx) override
+    {
+        for(auto i = 5; i < 25; ++i)
+        {
+            for(int j = 20; j < 80; ++j)
+            {
+                ctx.entity_manager
+                    .removeComponent<PositionComponent>(i * 100 + j);
+            }
+        }
+    }
+};
+
+class AddSomePixelsBackInitSystem : public GameInitSystem
+{
+public:
+    void execute(GameContext &ctx) override
+    {
+        for(auto i = 10; i < 20; ++i)
+        {
+            for(int j = 30; j < 70; ++j)
+            {
+                ctx.entity_manager
+                    .addComponent<PositionComponent>(i * 100 + j, j, i);
+            }
+        }
+    }
+};
+
 int usagi_main(const std::vector<std::string> &args)
 {
     Game game;
 
     game.addGameInitSystem(std::make_unique<PixelInitSystem>())
+        .addGameInitSystem(std::make_unique<EraseUnwantedPixelsInitSystem>())
+        .addGameInitSystem(std::make_unique<AddSomePixelsBackInitSystem>())
         .addFrameUpdateSystem(std::make_unique<CosineWaveValueUpdateSystem>())
         .addFrameUpdateSystem(std::make_unique<ColorMappingSystem>())
         .addFrameUpdateSystem(std::make_unique<ConsolePixelDrawSystem>())
