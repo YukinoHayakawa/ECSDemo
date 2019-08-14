@@ -1,8 +1,6 @@
 ﻿#include <algorithm>
 #include <execution>
 
-#include <fmt/ostream.h>
-
 #include <Usagi/Extension/Win32/Win32.hpp>
 #include <Usagi/Extension/Win32/Win32MacroFix.hpp>
 
